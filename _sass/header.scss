@@ -1,0 +1,18 @@
+.site-header {
+    border-top: none;
+    border-bottom: none;
+}
+
+.site-header a.site-title, .site-nav a.page-link {
+    color: white;
+}
+
+@media screen and (max-width: 600px) {
+    .site-nav a.page-link {
+        color: black;
+    }
+
+    .site-nav .menu-icon svg {
+        fill: #1a50a8;
+    }
+}
