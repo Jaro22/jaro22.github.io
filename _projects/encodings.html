@@ -1,317 +1,293 @@
 ---
+layout: home
 title: "Encodings"
-description: "Visualization of different encoding patterns in JavaScript"
+description: "Visualization of different line codes"
 ---
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Encodings</title>
-    <style>
-        body {
-            max-width: 960px;
-            margin: 0 auto;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            font-size: 16px;
-            line-height: 1.5em;
-            color: #333;
-        }
-        h1 {
-            display: block;
-            width: 100%;
-            text-align: center;
-            color: #555;
-            text-decoration: underline;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 3em;
-        }
-        #input {
-            margin: 10px;
-            padding: 10px;
-            text-align: center;
-        }
-        .repr {
-            min-height: 1em;
-            text-transform: uppercase;
-        }
-        .wrapper {
-            margin: 10px;
-        }
-        .wrapper p {
-            margin-bottom: 0.25em;
-        }
-        canvas {
-            max-width: 960px;
-            max-height: 100px;
-            width: 100%;
-        }
-    </style>
-</head>
-<body>
-    <h1>Encodings</h1>
-    <div class="wrapper">
-        Input (UTF-8): <input id="input" value="ILAB" autofocus/>
-    </div>
-    <div id="dec" class="wrapper repr"></div>
-    <div id="oct" class="wrapper repr"></div>
-    <div id="hex" class="wrapper repr"></div>
-    <div id="bin" class="wrapper repr"></div>
-    <div class="wrapper">
-        <p>Clock:</p>
-        <canvas id="clock"></canvas>
-    </div>
-    <div class="wrapper">
-        <p>NRZ-L:</p>
-        <canvas id="nrz-l"></canvas>
-    </div>
-    <div class="wrapper">
-        <p>NRZ-M:</p>
-        <canvas id="nrz-m"></canvas>
-    </div>
-    <div class="wrapper">
-        <p>Manchester-Code:</p>
-        <canvas id="manchester"></canvas>
-    </div>
-    <script>
-        (() => {
-            let canvas_width = 940;
-            let canvas_height = 100;
+<style>
+    #input {
+        margin: 10px;
+        padding: 10px;
+        text-align: center;
+    }
+    .repr {
+        min-height: 1em;
+        text-transform: uppercase;
+    }
+    .inner-wrapper {
+        margin: 10px;
+    }
+    .inner-wrapper p {
+        margin-bottom: 0.25em;
+    }
+    canvas {
+        max-width: 960px;
+        max-height: 100px;
+        width: 100%;
+    }
+</style>
 
-            let render_repr = (input, div_id, system) => {
-                let div = document.getElementById(div_id);
-                let codes = Array.from(unescape(encodeURIComponent(input))).map((ch) => ch.charCodeAt(0));
-                let repr = codes.map((code) => code.toString(system));
-                if(system == 2) { // make sure to show 8 bits in binary
-                    repr = repr.map((str) => str.padStart(8, "0"));
+<p>Change the input to see different line code representations.<br/>More info can be found at <a href="https://en.wikipedia.org/wiki/Line_code">Line Code<sup>Wikipedia</sup></a></p>
+
+<div class="inner-wrapper">
+    Input (UTF-8): <input id="input" value="ILAB" autofocus/>
+</div>
+<div id="dec" class="inner-wrapper repr"></div>
+<div id="oct" class="inner-wrapper repr"></div>
+<div id="hex" class="inner-wrapper repr"></div>
+<div id="bin" class="inner-wrapper repr"></div>
+<div class="inner-wrapper">
+    <p>Clock:</p>
+    <canvas id="clock"></canvas>
+</div>
+<div class="inner-wrapper">
+    <p>NRZ-L:</p>
+    <canvas id="nrz-l"></canvas>
+</div>
+<div class="inner-wrapper">
+    <p>NRZ-M:</p>
+    <canvas id="nrz-m"></canvas>
+</div>
+<div class="inner-wrapper">
+    <p>Manchester-Code:</p>
+    <canvas id="manchester"></canvas>
+</div>
+
+<script>
+    (() => {
+        let canvas_width = 940;
+        let canvas_height = 100;
+
+        let render_repr = (input, div_id, system) => {
+            let div = document.getElementById(div_id);
+            let codes = Array.from(unescape(encodeURIComponent(input))).map((ch) => ch.charCodeAt(0));
+            let repr = codes.map((code) => code.toString(system));
+            if(system == 2) { // make sure to show 8 bits in binary
+                repr = repr.map((str) => str.padStart(8, "0"));
+            }
+            repr = repr.reduce((acc, val) => acc.concat(val), []);
+            div.innerHTML = "= [" + repr.map((str) => str + "<sub>" + system + "</sub>").join(", ") + "]";
+            return repr;
+        }
+        
+        let setup_ctx = (canvas_id) => {
+            let canvas = document.getElementById(canvas_id);
+            let pixel_ratio = 2;
+            canvas.width = canvas_width * pixel_ratio;
+            canvas.height = canvas_height * pixel_ratio;
+            // canvas.style.width = canvas_width + "px";
+            // canvas.style.height = canvas_height + "px";
+            let ctx = canvas.getContext("2d");
+            ctx.scale(pixel_ratio, pixel_ratio);
+            ctx.clearRect(0, 0, canvas_width, canvas_height);
+            ctx.beginPath();
+            ctx.strokeStyle = "lightgrey";
+            ctx.rect(0.5, 0.5, canvas_width - 1, canvas_height - 1);
+            ctx.stroke();
+            ctx.closePath();
+            return ctx;
+        };
+
+        let draw_vertical_marks = (ctx, count, color) => {
+            ctx.beginPath()
+            for(let i = 1; i < count; i++) {
+                let x = canvas_width / count * i;
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas_height);
+            }
+            ctx.strokeStyle = color;
+            ctx.stroke();
+            ctx.closePath();
+        }
+
+        let draw_byte_boundaries = (ctx, count) => {
+            draw_vertical_marks(ctx, count, "red");
+        }
+
+        let draw_clock = (ctx, count) => {
+            draw_vertical_marks(ctx, count * 8, "lightgrey");
+        }
+
+        let draw_high_low = (ctx, high, low) => {
+            ctx.beginPath()
+            ctx.moveTo(0, high);
+            ctx.lineTo(canvas_width, high);
+            ctx.moveTo(0, low);
+            ctx.lineTo(canvas_width, low);
+            ctx.strokeStyle = "lightgrey";
+            ctx.stroke();
+            ctx.closePath();
+            ctx.fillStyle = "grey";
+            ctx.fillText("H", 2, high - 2);
+            ctx.fillText("L", 2, low + 10);
+        }
+
+        let render_nrz_l = (binary) => {
+            let ctx = setup_ctx("nrz-l");
+            // draw clock in grey
+            draw_clock(ctx, binary.length);
+            // draw byte boundaries in red
+            draw_byte_boundaries(ctx, binary.length);
+            // draw high/low levels in lightgrey
+            let high_y = canvas_height / 4;
+            let low_y = canvas_height / 4 * 3;
+            draw_high_low(ctx, high_y, low_y);
+            // draw signal in black
+            ctx.beginPath();
+            let bit_width = canvas_width / (binary.length * 8);
+            let prev = null;
+            for(let byte = 0; byte < binary.length; byte++) {
+                for(let bit = 0; bit < 8; bit++) { // expect 8 bits in byte
+                    let pos = (byte * 8) + bit;
+                    let y = null;
+                    let code = binary[byte][bit];
+                    if(prev && code !== prev) {
+                        ctx.moveTo(bit_width * pos, low_y);
+                        ctx.lineTo(bit_width * pos, high_y);
+                    }
+                    if(code === "0") {
+                        y = low_y;
+                    } else {
+                        y = high_y;
+                    }
+                    ctx.moveTo(bit_width * pos, y);
+                    ctx.lineTo(bit_width * (pos + 1), y);
+                    prev = code;
                 }
-                repr = repr.reduce((acc, val) => acc.concat(val), []);
-                div.innerHTML = "= [" + repr.map((str) => str + "<sub>" + system + "</sub>").join(", ") + "]";
-                return repr;
             }
-            
-            let setup_ctx = (canvas_id) => {
-                let canvas = document.getElementById(canvas_id);
-                let pixel_ratio = 2;
-                canvas.width = canvas_width * pixel_ratio;
-                canvas.height = canvas_height * pixel_ratio;
-                // canvas.style.width = canvas_width + "px";
-                // canvas.style.height = canvas_height + "px";
-                let ctx = canvas.getContext("2d");
-                ctx.scale(pixel_ratio, pixel_ratio);
-                ctx.clearRect(0, 0, canvas_width, canvas_height);
-                ctx.beginPath();
-                ctx.strokeStyle = "lightgrey";
-                ctx.rect(0.5, 0.5, canvas_width - 1, canvas_height - 1);
-                ctx.stroke();
-                ctx.closePath();
-                return ctx;
-            };
+            ctx.strokeStyle = "black";
+            ctx.stroke();
+            ctx.closePath();
+        }
 
-            let draw_vertical_marks = (ctx, count, color) => {
-                ctx.beginPath()
-                for(let i = 1; i < count; i++) {
-                    let x = canvas_width / count * i;
-                    ctx.moveTo(x, 0);
-                    ctx.lineTo(x, canvas_height);
-                }
-                ctx.strokeStyle = color;
-                ctx.stroke();
-                ctx.closePath();
-            }
-
-            let draw_byte_boundaries = (ctx, count) => {
-                draw_vertical_marks(ctx, count, "red");
-            }
-
-            let draw_clock = (ctx, count) => {
-                draw_vertical_marks(ctx, count * 8, "lightgrey");
-            }
-
-            let draw_high_low = (ctx, high, low) => {
-                ctx.beginPath()
-                ctx.moveTo(0, high);
-                ctx.lineTo(canvas_width, high);
-                ctx.moveTo(0, low);
-                ctx.lineTo(canvas_width, low);
-                ctx.strokeStyle = "lightgrey";
-                ctx.stroke();
-                ctx.closePath();
-                ctx.fillStyle = "grey";
-                ctx.fillText("H", 2, high - 2);
-                ctx.fillText("L", 2, low + 10);
-            }
-
-            let render_nrz_l = (binary) => {
-                let ctx = setup_ctx("nrz-l");
-                // draw clock in grey
-                draw_clock(ctx, binary.length);
-                // draw byte boundaries in red
-                draw_byte_boundaries(ctx, binary.length);
-                // draw high/low levels in lightgrey
-                let high_y = canvas_height / 4;
-                let low_y = canvas_height / 4 * 3;
-                draw_high_low(ctx, high_y, low_y);
-                // draw signal in black
-                ctx.beginPath();
-                let bit_width = canvas_width / (binary.length * 8);
-                let prev = null;
-                for(let byte = 0; byte < binary.length; byte++) {
-                    for(let bit = 0; bit < 8; bit++) { // expect 8 bits in byte
-                        let pos = (byte * 8) + bit;
-                        let y = null;
-                        let code = binary[byte][bit];
-                        if(prev && code !== prev) {
-                            ctx.moveTo(bit_width * pos, low_y);
-                            ctx.lineTo(bit_width * pos, high_y);
-                        }
-                        if(code === "0") {
-                            y = low_y;
-                        } else {
+        let render_nrz_m = (binary) => {
+            let ctx = setup_ctx("nrz-m");
+            // draw clock in grey
+            draw_clock(ctx, binary.length);
+            // draw byte boundaries in red
+            draw_byte_boundaries(ctx, binary.length);
+            // draw high/low levels in lightgrey
+            let high_y = canvas_height / 4;
+            let low_y = canvas_height / 4 * 3;
+            draw_high_low(ctx, high_y, low_y);
+            // draw signal in black
+            ctx.beginPath();
+            let bit_width = canvas_width / (binary.length * 8);
+            let prev = null;
+            let prev_y = low_y;
+            for(let byte = 0; byte < binary.length; byte++) {
+                for(let bit = 0; bit < 8; bit++) { // expect 8 bits in byte
+                    let pos = (byte * 8) + bit;
+                    let code = binary[byte][bit];
+                    let y = null;
+                    if(code === "1") { // change on 1
+                        if(prev_y === low_y) { // make y the opposite of prev_y
                             y = high_y;
-                        }
-                        ctx.moveTo(bit_width * pos, y);
-                        ctx.lineTo(bit_width * (pos + 1), y);
-                        prev = code;
-                    }
-                }
-                ctx.strokeStyle = "black";
-                ctx.stroke();
-                ctx.closePath();
-            }
-
-            let render_nrz_m = (binary) => {
-                let ctx = setup_ctx("nrz-m");
-                // draw clock in grey
-                draw_clock(ctx, binary.length);
-                // draw byte boundaries in red
-                draw_byte_boundaries(ctx, binary.length);
-                // draw high/low levels in lightgrey
-                let high_y = canvas_height / 4;
-                let low_y = canvas_height / 4 * 3;
-                draw_high_low(ctx, high_y, low_y);
-                // draw signal in black
-                ctx.beginPath();
-                let bit_width = canvas_width / (binary.length * 8);
-                let prev = null;
-                let prev_y = low_y;
-                for(let byte = 0; byte < binary.length; byte++) {
-                    for(let bit = 0; bit < 8; bit++) { // expect 8 bits in byte
-                        let pos = (byte * 8) + bit;
-                        let code = binary[byte][bit];
-                        let y = null;
-                        if(code === "1") { // change on 1
-                            if(prev_y === low_y) { // make y the opposite of prev_y
-                                y = high_y;
-                            } else {
-                                y = low_y;
-                            }
-                            ctx.moveTo(bit_width * pos, low_y);
-                            ctx.lineTo(bit_width * pos, high_y);
-                        } else { // no change on 0
-                            y = prev_y;
-                        }
-                        ctx.moveTo(bit_width * pos, y);
-                        ctx.lineTo(bit_width * (pos + 1), y);
-                        prev_y = y;
-                        prev = code;
-                    }
-                }
-                ctx.strokeStyle = "black";
-                ctx.stroke();
-                ctx.closePath();
-            }
-
-            let render_manchester = (bin) => {
-                let ctx = setup_ctx("manchester");
-                // draw clock in grey
-                draw_clock(ctx, bin.length);
-                // draw byte boundaries in red
-                draw_byte_boundaries(ctx, bin.length);
-                // draw high/low levels in lightgrey
-                let high_y = canvas_height / 4;
-                let low_y = canvas_height / 4 * 3;
-                draw_high_low(ctx, high_y, low_y);
-                // draw signal in black
-                ctx.beginPath();
-                let bit_width = canvas_width / (bin.length * 8);
-                let prev = null;
-                for(let byte = 0; byte < bin.length; byte++) {
-                    for(let bit = 0; bit < 8; bit++) { // expect 8 bits in byte
-                        let pos = (byte * 8) + bit;
-                        let y = null;
-                        let code = bin[byte][bit];
-                        if(prev && code === prev) {
-                            ctx.moveTo(bit_width * pos, low_y);
-                            ctx.lineTo(bit_width * pos, high_y);
-                        }
-                        if(code === "0") {
-                            ctx.moveTo(bit_width * pos, low_y);
-                            ctx.lineTo(bit_width * (pos + 0.5), low_y);
-                            ctx.lineTo(bit_width * (pos + 0.5), high_y);
-                            ctx.lineTo(bit_width * (pos + 1), high_y);
                         } else {
-                            ctx.moveTo(bit_width * pos, high_y);
-                            ctx.lineTo(bit_width * (pos + 0.5), high_y);
-                            ctx.lineTo(bit_width * (pos + 0.5), low_y);
-                            ctx.lineTo(bit_width * (pos + 1), low_y);
+                            y = low_y;
                         }
-                        prev = code;
+                        ctx.moveTo(bit_width * pos, low_y);
+                        ctx.lineTo(bit_width * pos, high_y);
+                    } else { // no change on 0
+                        y = prev_y;
                     }
+                    ctx.moveTo(bit_width * pos, y);
+                    ctx.lineTo(bit_width * (pos + 1), y);
+                    prev_y = y;
+                    prev = code;
                 }
-                ctx.strokeStyle = "black";
-                ctx.stroke();
-                ctx.closePath();
             }
+            ctx.strokeStyle = "black";
+            ctx.stroke();
+            ctx.closePath();
+        }
 
-            let render_clock = (bin) => {
-                let ctx = setup_ctx("clock");
-                // draw clock in grey
-                draw_clock(ctx, bin.length);
-                // draw high/low levels in lightgrey
-                let high_y = canvas_height / 4;
-                let low_y = canvas_height / 4 * 3;
-                draw_high_low(ctx, high_y, low_y);
-                // draw signal in black
-                ctx.beginPath();
-                let bit_width = canvas_width / (bin.length * 8);
-                for(let byte = 0; byte < bin.length; byte++) {
-                    for(let bit = 0; bit < 8; bit++) { // expect 8 bits in byte
-                        let pos = (byte * 8) + bit;
-                        if(pos > 0 && pos < bin.length * 8) {
-                            ctx.moveTo(bit_width * pos, low_y);
-                            ctx.lineTo(bit_width * pos, high_y);
-                        }
+        let render_manchester = (bin) => {
+            let ctx = setup_ctx("manchester");
+            // draw clock in grey
+            draw_clock(ctx, bin.length);
+            // draw byte boundaries in red
+            draw_byte_boundaries(ctx, bin.length);
+            // draw high/low levels in lightgrey
+            let high_y = canvas_height / 4;
+            let low_y = canvas_height / 4 * 3;
+            draw_high_low(ctx, high_y, low_y);
+            // draw signal in black
+            ctx.beginPath();
+            let bit_width = canvas_width / (bin.length * 8);
+            let prev = null;
+            for(let byte = 0; byte < bin.length; byte++) {
+                for(let bit = 0; bit < 8; bit++) { // expect 8 bits in byte
+                    let pos = (byte * 8) + bit;
+                    let y = null;
+                    let code = bin[byte][bit];
+                    if(prev && code === prev) {
+                        ctx.moveTo(bit_width * pos, low_y);
+                        ctx.lineTo(bit_width * pos, high_y);
+                    }
+                    if(code === "0") {
                         ctx.moveTo(bit_width * pos, low_y);
                         ctx.lineTo(bit_width * (pos + 0.5), low_y);
                         ctx.lineTo(bit_width * (pos + 0.5), high_y);
                         ctx.lineTo(bit_width * (pos + 1), high_y);
+                    } else {
+                        ctx.moveTo(bit_width * pos, high_y);
+                        ctx.lineTo(bit_width * (pos + 0.5), high_y);
+                        ctx.lineTo(bit_width * (pos + 0.5), low_y);
+                        ctx.lineTo(bit_width * (pos + 1), low_y);
                     }
+                    prev = code;
                 }
-                ctx.strokeStyle = "grey";
-                ctx.stroke();
-                ctx.closePath();
             }
+            ctx.strokeStyle = "black";
+            ctx.stroke();
+            ctx.closePath();
+        }
 
-            let render = (str) => {
-                render_repr(str, "dec", 10);
-                render_repr(str, "oct", 8);
-                render_repr(str, "hex", 16);
-                let binary = render_repr(str, "bin", 2);
-                render_nrz_l(binary);
-                render_nrz_m(binary);
-                render_manchester(binary);
-                render_clock(binary);
+        let render_clock = (bin) => {
+            let ctx = setup_ctx("clock");
+            // draw clock in grey
+            draw_clock(ctx, bin.length);
+            // draw high/low levels in lightgrey
+            let high_y = canvas_height / 4;
+            let low_y = canvas_height / 4 * 3;
+            draw_high_low(ctx, high_y, low_y);
+            // draw signal in black
+            ctx.beginPath();
+            let bit_width = canvas_width / (bin.length * 8);
+            for(let byte = 0; byte < bin.length; byte++) {
+                for(let bit = 0; bit < 8; bit++) { // expect 8 bits in byte
+                    let pos = (byte * 8) + bit;
+                    if(pos > 0 && pos < bin.length * 8) {
+                        ctx.moveTo(bit_width * pos, low_y);
+                        ctx.lineTo(bit_width * pos, high_y);
+                    }
+                    ctx.moveTo(bit_width * pos, low_y);
+                    ctx.lineTo(bit_width * (pos + 0.5), low_y);
+                    ctx.lineTo(bit_width * (pos + 0.5), high_y);
+                    ctx.lineTo(bit_width * (pos + 1), high_y);
+                }
             }
+            ctx.strokeStyle = "grey";
+            ctx.stroke();
+            ctx.closePath();
+        }
 
-            let input = document.getElementById("input");
-            input.select();
-            input.addEventListener("input", (event) => {
-                render(event.target.value);
-            });
-            render(input.value);
-        })();
-    </script>
-</body>
-</html>
+        let render = (str) => {
+            render_repr(str, "dec", 10);
+            render_repr(str, "oct", 8);
+            render_repr(str, "hex", 16);
+            let binary = render_repr(str, "bin", 2);
+            render_nrz_l(binary);
+            render_nrz_m(binary);
+            render_manchester(binary);
+            render_clock(binary);
+        }
+
+        let input = document.getElementById("input");
+        input.select();
+        input.addEventListener("input", (event) => {
+            render(event.target.value);
+        });
+        render(input.value);
+    })();
+</script>

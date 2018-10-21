@@ -6,12 +6,10 @@ weight: 1
 {%- if site.projects.size > 0 -%}
     {%- for project in site.projects -%}
     <h3>
-        <a class="post-link" href="{{ project.url | relative_url }}">
+        <a class="post-link inline" href="{{ project.url | relative_url }}">
         {{ project.title | escape }}
         </a>
+        <small>{{ project.description }}</small>
     </h3>
-    {%- if site.show_excerpts -%}
-        {{ project.description }}
-    {%- endif -%}
     {%- endfor -%}
 {%- endif -%}
